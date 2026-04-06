@@ -1,0 +1,9 @@
+# 대용량 데이터셋 제외 (GitHub 100MB 제한)
+ai_lecture-master/day5_CNN/data/
+ai_lecture-master/day4_MLP/sample_data/
+ai_lecture-master/day5_CNN/sample_data/
+
+# Python 캐시
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

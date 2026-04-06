@@ -1,0 +1,24 @@
+# Jupyter Notebook checkpoint files
+.ipynb_checkpoints/
+
+# Agent workflow (internal use)
+AGENT_README_WORKFLOW.md
+
+# 강의 가이드 (각 day 폴더 내부)
+**/HOW_TO_LECTURE.md
+
+.env
+
+# RAG
+chroma_store/
+chayoon_lego/
+
+# agent
+gradio/
+
+# embadding
+tokenizer_deepseek/
+
+# CNN
+data/
+sample_data/
