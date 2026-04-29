@@ -1,0 +1,307 @@
+[0] markdown:
+먼저 API Key 동작 테스트부터 시작합니다.
+- Upstage API Key로 테스트합니다.
+---
+[1] markdown:
+# 1. API Key / LangGraph 세팅 점검하기
+---
+[2] code:
+from dotenv import load_dotenv
+load_dotenv() # .env파일에서 환경설정 가져오기
+---
+[3] code:
+import os
+from openai import OpenAI
+
+UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY")
+print(f'UPSTAGE_API_KEY = {UPSTAGE_API_KEY}')
+
+# Upstage API
+client = OpenAI(api_key=UPSTAGE_API_KEY, base_url="https://api.upstage.ai/v1")
+
+model = "solar-pro3"
+prompt="KFC 버거 추천좀 해줘, 두줄 요약"
+
+response = client.chat.completions.create(model=model, messages=[{"role": "user", "content": prompt}])
+print(response.choices[0].message.content)
+---
+[4] markdown:
+아래 코드는 랭그래프가 정상 동작되는지 테스트입니다. 
+
+가볍게 실행하여 잘 동작되는지 확인해주세요.
+---
+[5] code:
+from typing_extensions import TypedDict, Annotated
+import operator
+import os
+
+from langchain.chat_models import init_chat_model
+# from langchain.messages import AnyMessage, HumanMessage
+from langchain_core.messages import AnyMessage, HumanMessage
+from langgraph.graph import StateGraph, START, END
+from langchain_upstage import ChatUpstage  # Upstage
+
+# OpenAI API는 아래 주석을 풀고 쓰세요.
+#model = init_chat_model("gpt-5-nano", temperature=0)
+
+# Upstage API는 아래 주석을 풀고 쓰세요.
+model = ChatUpstage(model="solar-p
+---
+[6] markdown:
+# 2. RAG 이해하기 (이론)
+---
+[7] markdown:
+### RAG는 기술입니다. RAG를 해봅시다.
+---
+[8] markdown:
+RAG는 기술 이름입니다~.
+
+LLM에 사용자 질문과, 검색된 관련 정보를 함께 LLM에 넣어주는 기술입니다.
+
+LLM이 더 똑똑하게 대답할수 있습니다.
+
+아래 예시 이미지를 보면, 둘중 어느것이 검색결과가 더 좋을까요?
+1. "오늘날씨어때?" 프롬프트를 LLM을 넣었을 때 결과
+2. "오늘날씨어때?(구글검색결과:비옴)" 프롬프트를 LLM을 넣었을 때 결과
+
+당연히 2번이 LLM 답변 품질이 더 좋겠죠?
+
+이렇게 LLM에 프롬프트를 넣기 전, "**관련 내용을 검색하여 프롬프트를 보강**" 하는 기술을 RAG 라고 부릅니다.
+---
+[10] markdown:
+
+RAG는 기술이므로, "RAG 했다." 라고 부르곤 합니다.
+
+우리 수업에서는 RAG를 할 예정입니다.
+
+RAG는 기업에서 많이 사용됩니다.
+
+- 질문이 들어왔을 때, 자동으로 사내문서 / 사내시스템에 유사한 내용을 검색 후 LLM에게 물어보도록 합니다.
+
+RAG를 통해서, 제미나이, GPT 같은 거대한 모델이 모르는.. 우리 회사만의 비공개 정보를 LLM에게 알려줄수 있는 것이죠.
+---
+[11] markdown:
+### RAG를 위한 준비물
+---
+[12] markdown:
+먼저 사내문서들을 DB에 저장해두어야겠죠?
+
+사내문서를 DB에 저장할때 두 가지 선택지가 있습니다.
+- Text 원본 그대로 DB에 저장해두기
+    - 차후 검색시, 완벽히 동일한 단어 중심으로 검색을 하게 됩니다~!
+- Text들을 임베딩해서 DB에 의미벡터값으로 저장해두기
+    - 차후 검색시, 완벽한 동일한 단어가 아니라 의미가 유사한 단어로 검색이 가능합니다~!
+ 
+우리 실습은 '임베딩'을 하는 방법을 통해 '유사도 검색'이 가능하도록 하겠습니다.
+ - 이러면 정확한 단어로 검색하지 않아도, 유사성이 높은 단어들로 검색이 더 잘될겁니다.
+---
+[13] markdown:
+그러면 다음과 같은 준비물이 필요합니다.
+
+1. 사내문서 Text
+2. Text를 임베딩하여 의미공간의 벡터값으로 변경할 "임베딩모델"
+3. 마지막으로 임베딩 값을 저장할 "DB"
+4. Cosine 유사도가 높은 단어가 있는 문서를 검색해주는 "Retriever" Library
+
+생각보다 준비물이 많아요.
+---
+[15] markdown:
+위 이미지를 이해하면, RAG 동작 원리를 파악한 것입니다!
+- 준비 단계
+1. 사내 문서 Text로 추출하여, "Chunk" 라는 단락 단위로 나눕니다.
+2. "Chunk" 를 임베딩모델의 입력값으로 넣어, 벡터로 만들어냅니다.
+3. 만들어진 벡터를 DB에 저장합니다.
+- Workflow 동작
+4. 질문 프롬프트를 입력 받습니다.
+5. 임베딩 모델을 거쳐 벡터 값을 얻어낸 후, Retriever로 유사한 Chunk를 검색합니다.
+6. 기존 질문과, 검색결과를 합쳐 프롬프트를 완성합니다.
+7. 프롬프트를 LLM에 입력으로 넣습니다.
+8. 더 멋진 결과가 나옵니다.
+---
+[16] markdown:
+### RAG에 대한 Q&A
+- Q. DB는 뭘 쓰나요?
+- A. Vector 저장과 빠른 검색을 위한 Vector DB가 존재합니다. (Chroma, FAISS 등) <br/>
+     그런데 그냥 MySQL을 써도 됩니다. MySQL 9.0 부터는 Vector도 지원되거든요.
+
+<br/>
+
+- Q. 왜 문서를 Chunk 단위로 쪼개나요?
+- A. LLM이 거대한 문서 입력을 못받아들여서요.
+
+<br/>
+
+- Q. 문서 내용을 Chunk단위로 나눈다고 했는데, 몇 글자 정도로 나누나요?
+- A. 보통 300 ~ 1000 토큰정도면 됩니다. 이정도면 LLM도 부담없고, 검색에 필요한 정보는 충분히 담길꺼예요. <br/>
+   (한글 문장 수로 보면 한 20문장 정도)
+
+<br/>
+
+- Q. Chunk 단위로 자르면, 정보가 중간에 짤리는 것 아니예요?
+- A. 네 맞습니다. 그래서 겹치는 구간(Overlap)을 두면서 Chunk로 자릅니다.
+---
+[18] markdown:
+# 3. RAG 준비 단계
+---
+[19] markdown:
+실습에는 다음과 같은 모델과 DB를 사용합니다.
+    
+- 임베딩모델은 Upstage의 임베딩 모델을 사용합니다.
+- vector DB는 chromadb를 사용합니다.
+- LLM모델은 Upstage 모델을 사용합니다.
+---
+[20] markdown:
+다음 패키지를 사용합니다.
+- langchain_community
+  - 랭체인에서 자주사용되는 모듈들이 있습니다.
+  - Text 파일을 불러오는데 사용되는 Loader, Vector DB와 연동해주는 모듈 등이 있습니다.
+- langchain-chroma
+  - 실습에 사용할 Vector DB 입니다.
+  - vector값들을 저장하고, vector값을 검색해주는 검색기를 제공합니다.
+---
+[21] code:
+!pip install -U langchain_community langchain-chroma
+---
+[22] markdown:
+### Text 준비하기
+
+실습을 위한 소설을 준비했습니다. 제목은 "차윤이의 레고세상" 입니다.
+
+RAG가 잘 동작되는지 테스트를 하기 위해서는, LLM이 모르는 정보의 데이터가 필요하기 때문에 자작소설을 준비했습니다.
+
+- 아래 코드를 수행하면, ./chayoon_lego/chayoon_lego_world.pdf 파일로 소설이 저장됩니다.  
+---
+[23] code:
+!git clone https://github.com/mincoding-ai/chayoon_lego.git
+---
+[25] markdown:
+아래 코드는 PDF의 Text를 불러오고, 200자 단위로 자릅니다.
+
+이 단위를 Chunk라고 하고, 40글자 Overlap이 되도록 세팅하였습니다.
+---
+[26] code:
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# 1. Load: PDF 파일 불러오기
+loader = PyPDFLoader("./chayoon_lego/chayoon_lego_world.pdf")
+documents = loader.load()
+
+# 2. Split: 문서를 200자 단위로 자르기 (40자 overlap)
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=200,
+    chunk_overlap=40
+)
+chunks = splitter.split_documents(documents)
+
+print("\n--- 200자 단위로 잘린 문서 조각(Chunk)들 ---")
+for i, chunk in enumerate(chunks):
+   
+---
+[27] markdown:
+### Chunk를 임베딩 벡터로 변환 후 Vector DB에 저장하기
+vector DB는 chromaDB를 사용합니다.
+ - chromaDB는 내부적으로 SQLite 기반으로 구현되어있습니다.
+ - 아래 코드를 수행하면 "./chroma_store"라는 폴더가 생성 후 폴더 내부에 저장됩니다.
+
+임베딩 모델은 Upstage의 유료 임베딩 모델을 사용합니다.
+---
+[28] code:
+from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
+
+# OpenAI의 임베딩모델
+#embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Upstage의 임베딩모델
+from langchain_upstage import UpstageEmbeddings
+embeddings = UpstageEmbeddings(model="embedding-query")
+
+# 잘라낸 문서 조각(chunks)들을 임베딩하여 Vector DB에 저장합니다.
+vector_store = Chroma(
+    embedding_function=embeddings,
+    persist_directory="./chroma_store",
+)
+
+vector_store.add_documents(chunks)
+print("Chunk들을 Vector DB에 저장 완료")
+---
+[29] markdown:
+### 검색기(Retriever) 생성 후, 테스트
+- chromaDB는 검색기(retriever)도 제공합니다.
+- Vector Store 객체가 질문과 관련된 정보를 잘 찾아주는지 테스트해볼까요?
+---
+[30] code:
+retriever = vector_store.as_retriever()
+
+question = "차윤이 손 모양은?"
+
+# retriever.invoke(질문) 을 실행하면, 질문과 가장 관련 높은 문서 조각을 찾아줍니다.
+# question을 임베딩벡터로 변환 후 검색을 시작합니다.
+retrieved_docs = retriever.invoke(question)
+
+print(f"[질문]: {question}")
+print(f"\n[검색 결과]:\n{retrieved_docs[0].page_content}")
+---
+[31] markdown:
+# 4. LangGraph로 RAG 구현하기
+---
+[32] markdown:
+드디어 준비가 다 되었습니다.
+
+LangGraph로 RAG를 쓴 AI Workflow를 구현합니다.
+---
+[34] code:
+from typing_extensions import TypedDict, Annotated
+import operator
+import os
+
+# from langchain.messages import AnyMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
+from langgraph.graph import StateGraph, START, END
+from langchain_upstage import ChatUpstage
+
+# ===== 기존 Vector DB 그대로 사용 =====
+# (이미 위에서 만든 vector_store, retriever 재사용)
+
+# ===== LLM =====
+model = ChatUpstage(model="solar-pro", upstage_api_key=os.getenv("UPSTAGE_API_KEY"),
+---
+[35] code:
+!pip list | grep lang
+---
+[36] markdown:
+# 5. LangSmith 로 Data 살펴보기
+---
+[37] markdown:
+- LangSmith > Tracing을 통해 RAG로 검색된 Context 원본 값을 확인할 수 있습니다.
+- 지금은 정상 동작되어 디버깅이 불필요하지만, 정상동작되지 않을 때 어떤 값이 검색이 되었는지 이를 통해 확인할 수 있습니다.
+---
+[39] markdown:
+# 6. 끝으로
+---
+[40] markdown:
+  - AI Workflow 개념에 대해 알아봤습니다!
+  - LangGraph은 LLM에 Workflow가 필요한 경우, 유용하게 사용할 수 있는 툴입니다.
+  
+<br/>
+
+**[참고사항]**
+  - 아직 LangGraph 수업이 끝나지 않았습니다!!
+    - 다음 수업에는 LangChain과 LaghGraph에 대한 상세한 내용을 배웁니다.
+    - 다음 수업에는 Tool을 사용하는 방법도 배웁니다.
+
+<br/>
+
+### Easy 자료 (강사님 자료)
+- AI를 처음 공부하는 분들을 위해 만들어져있습니다.
+- 내용을 모두 이해해야합니다! **강사님의 도움을 적극적으로 받아주세요.**
+
+### 실습 / 과제 자료 (업스테이지 자료)
+- AI를 공부해본 경험자 위주로 만들어져있습니다.
+- 퍼즐조각을 모은다는 생각으로 공부해주세요!. **GPT의 도움을 적극적으로 받아주세요.**
+
+### 교수님 강의
+- 국내 최고의 AI 교수님들의 강의가 시작됩니다.
+- 최대한 내용을 이해해봅시
+---

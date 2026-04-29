@@ -1,0 +1,294 @@
+[0] markdown:
+# 수업 내용
+1. 랭체인 기본코드 복습
+2. Gradio UI 사용 방법 이해
+3. 랭체인 + Gradio UI
+4. UI 꾸미는 방법 소개
+5. [미션] 나만의 RAG 시스템 만들기
+
+---
+[1] markdown:
+# 1. 랭체인 기본코드 복습
+- Gradio 수업 전, 간단히 랭체인을 복습합니다.
+---
+[2] markdown:
+### 랭체인을 돌리기 위한 준비
+---
+[3] code:
+# 랭체인 공식 버전으로 설치됩니다 (에러는 무시하셔도 됩니다.)
+!pip install --upgrade --force-reinstall \
+  "langchain-core==1.2.17" \
+  "langchain==1.2.12" \
+  "langgraph==1.1.2" \
+  "langchain-openai==1.1.0" \
+  "langchain-upstage==0.7.7" \
+  "langchain-text-splitters==1.1.1" \
+  "langchain-classic==1.0.2" \
+  "transformers==4.46.0" \
+  "tokenizers==0.20.3" \
+  "langchain-community==0.4.1" \
+  "langchain-chroma==1.1.0" \
+  "chromadb==1.5.5"
+
+# 로컬일 경우
+import os
+os.environ["OPENAI_API_KEY"] = "YOUR_UPSTAGE_API_KEY
+---
+[4] markdown:
+langchain 버전 1.0 이상 설치 됐는지 확인
+---
+[5] code:
+!pip show langchain
+---
+[6] markdown:
+### 랭체인 Agent 기본 코드 실행
+- 아래 코드는 공식문서의 기본 코드입니다.
+  - 날씨를 알려주는 Tool이 존재합니다.
+  - Model이 툴을 사용해야한다고 판단하면, 툴을 사용합니다.
+- 코드 출처 : https://docs.langchain.com/oss/python/langchain/quickstart
+---
+[7] code:
+from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+import requests
+
+SYSTEM_PROMPT = """넌 아주 친절한 AI 도구야, 아이처럼 말해
+사용자가 요청하면 필요한 도구를 정확히 한 번만 사용하고
+
+너에게는 1개의 도구가 있어:
+
+1. get_weather(city: str)
+   - city에 해당하는 날씨를 알려줍니다.
+   - city 값이 영어가 아니면 영어로 번역해서 실행해줍니다.
+
+결과를 이용해 답해줘. 적절한 도구를 못찾으면 도구를 사용하지 않고 답해줘.
+"""
+
+@tool
+def get_weather(city: str) -> str:
+    """현재 city에 해당하는 날씨를 알려주는 도구"""
+    # OpenWeatherMap API 키를 입력하세요
+    # https:
+---
+[8] markdown:
+# 2. Gradio UI 소개
+---
+[9] markdown:
+### Gradio 소개
+- Python 기반 머신러싱 모델의 **데모 App**을 만들기 위한 오픈소스 패키지 입니다.
+  - **몇 초만에 Web Application의 URL을 생성할 수 있습니다.**
+  - 코랩에 내장되어있습니다. 별도 설치가 필요하지 않습니다.
+
+- 아래 이미지는 gradio UI 동작 예시입니다.
+  - 이미지 출처 : https://www.gradio.app/guides/quickstart
+---
+[10] markdown:
+![Honeycam 2025-10-26 14-08-44.gif](data:image/gif;base64,R0lGODlhoAIYAfMAAB0dHQ4ODgoKDEJCQiQjJAwMDTs6O3JtclpYXYqIjwAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/ixIb25leWNhbSA0LjMxICgyMDI1LTEwLTI2IDE0OjA5OjM2KSBSOyBxPTgwIAAh+QQEWgD/ACwAAAAAoAIYAQAE/xDISau9OOvNu/9gKI5kaZ5oqhFC67pFLMdBbd94ru987//AoHBILBqPyKRyaVQ5n9CodEqtWqEE1gs2C3SZ4LB4TC6bz+jkdc1uu9/wuCi7bc1ohbR+z+/7/4BAKwQThCUEBhuIFAOJEgQDkIYTBo4aBpOPiJgciyScGZAIkXKlpqeadXYFAl+Br7CxsrOxGggHjwmZIQQHlhcDB5MHA4W6CcUUCAgcAwiZvQnSzxrBhdQezruMCN
+---
+[11] markdown:
+### Gradio 기본코드
+---
+[12] markdown:
+- 아래는 Gradio 공식 Hello world 코드입니다.
+- 강도 스크롤을 높일수록 "!" 가 늘어납니다.
+  - 코드 출처 : https://www.gradio.app/guides/quickstart#building-your-first-demo
+
+- URL도 나오는데, 1주일간 무료라고 합니다.
+  - 한번 클릭해보세요.
+---
+[13] code:
+# 로컬에서는 설치 필요. 최초 1번 실행
+#!pip install gradio
+
+!pip show gradio
+import gradio as gr
+print(f"현재 로드된 Gradio 버전: {gr.__version__}")
+---
+[14] code:
+import gradio as gr
+
+def greet(name, intensity):
+    return "Hello, " + name + "!" * int(intensity)
+
+# 화면 구성하기
+demo = gr.Interface(
+    fn=greet,
+    inputs=["text", "slider"],
+    outputs=["text"],
+)
+
+# 화면 구성 실행
+# share: True면 외부링크 제공 (다른 컴퓨터에서 아래 화면에 접속 가능)
+demo.launch(share=True)
+---
+[15] markdown:
+# 3. 랭체인과 Gradio 연동
+- 자! 이제 랭체인 기본코드와 Gradio를 연동해봅시다.
+---
+[16] markdown:
+### 랭체인 + Gradio 대화창 코드
+- 랭체인의 invoke 함수를 chat 함수에 넣으면 끝입니다.
+- 아래 코드를 실행하기 위해서, 교안 상단의 코드를 실행해야합니다.
+---
+[17] code:
+import gradio as gr
+
+def chat(message, history):
+    # 여기 agent는 첫번째 셀에서 만들었던 agent
+    result = agent.invoke({"messages": [{"role": "user", "content": message}]})
+    answer = result["messages"][-1].content
+
+    # 여기서 history는 이전 대화 이력을 보여주는 것입니다.
+    # 멀티턴을 위한 history가 아닙니다.
+    history = history + [
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": answer}
+    ]
+    return "", history
+
+# ========================================
+# Gradio Blocks 기반 UI
+# ====
+---
+[18] markdown:
+# 4. Gradio UI를 Vibe 코딩으로 꾸미기
+- 손쉽게 UI를 꾸며봅시다.
+- 먼저 아래 코드를 실행해서 app.py 파일로 저장합니다.
+---
+[19] code:
+# 로컬일 경우
+# 1. 파일에 작성할 내용을 문자열로 정의합니다.
+app_content = """
+import gradio as gr
+import os
+
+# ---------------------------------------------------------
+# 주의: 이 파일 실행 시 'agent' 객체가 정의되어 있어야 합니다.
+# ---------------------------------------------------------
+
+def chat(message, history):
+    # LangChain Agent 호출
+    result = agent.invoke({"messages": [{"role": "user", "content": message}]})
+    answer = result["messages"][-1].content
+
+    # Gradio 5.0+ (Messages Format)에 맞는 히스토리 업데이트
+    history.append({"r
+---
+[20] markdown:
+### Gradio - Vibe Mode
+- Gradio UI를 꾸밀때 참고해야할 기능입니다.
+  - **공식 Documentation**
+    - Documentation에는 기능별로 샘플코드가 준비되어 있습니다.
+    - https://www.gradio.app/docs/gradio/introduction
+    
+  - **Playground**
+    - 에서 자유롭게 UI를 테스트 해볼 수 있지만, 곧 삭제(Deprecated) 될 예정입니다.
+    - Deprecated 되고, 다른 것으로 업데이트가 될것 같습니다.
+    - 일단은 유용하기 때문에, 사라지기 전까지 사용하시면 됩니다.
+    - https://www.gradio.app/playground
+    
+  - **UI 바이브 코딩**
+    - 공식 Documentaion 대신 UI를 바이브 코딩으로 꾸밀 수 있습니다.
+    - 이 기능은 허깅페이스의 추론용 API를 사용합니다.
+    - 이를 위해 
+---
+[22] markdown:
+- Read 권한으로 간단한 토큰을 생성합니다.
+---
+[24] markdown:
+- 메모장 대신, 키를 열쇠버튼을 누르고 **HF_TOKEN** 이라는 이름으로 키를 등록
+  - 백업용으로 사용하면 편리합니다. ^^;
+---
+[25] markdown:
+- 아까 예제를 app.py로 저장해두었습니다.
+  - 이 코드를 gradio --vibe 옵션으로 실행하면 됩니다.
+
+- 아래 코드를 실행합니다.
+  - Enter your token : **허깅페이스 키 입력**
+  - Add token as git credential? (허깅페이스의 Git도 사용할텐가?) : **n 입력**
+  - Stay logged in to Hugging Face? (로그인 유지할텐가?) : **Y 입력**
+
+- 이후 URL이 나오면 클릭합니다.
+---
+[26] code:
+# 허깅페이스 토큰을 환경 변수로 설정
+os.environ["HF_TOKEN"] = "YOUR_HF_TOKEN_HERE"
+---
+[27] code:
+# 터미널에서 아래 명령어 실행
+!gradio --vibe app.py
+---
+[28] markdown:
+- 실행결과는 다음과 같습니다.
+- 프롬프트를 입력하여 꾸며주세요.
+  - 예시
+    - TextBox 하나 더 추가해봐
+    - 대화창 크기를 줄여줘
+---
+[30] markdown:
+
+
+- 완성 후 [Code] 탭에서 [Update Code]를 저장하면 app.py 내용이 업데이트 되어있습니다.
+---
+[32] markdown:
+- app.py 코드를 보면서, 나만의 UI를 꾸밀 수 있습니다.
+- 이 Vibe 모드를 켜두고, 동시에 PlayGound (사라질 예정) 또는 Document를 보면서 개발하면 나만의 UI를 완성할 수 있습니다.
+  - PlayGround : https://www.gradio.app/playground
+  - Document : https://www.gradio.app/guides/creating-a-custom-chatbot-with-blocks
+
+---
+[33] markdown:
+# 5. [미션] 나만의 RAG 시스템 만들기
+- 나만의 RAG 시스템을 만드는 미션입니다.
+- 기존 실습자료를 참고하여, RAG 시스템을 만들어주세요!
+---
+[34] markdown:
+### 미션 1 - 데이터 준비하기
+
+- 교육생 여러분은 먼저 어떤 내용을 RAG로 만들지 정해야합니다.
+- 데이터를 검색하여 Text 파일을 준비해주세요.
+- 유의사항
+  - RAG를 수행하기 전, 모델이 모르는 정보를 사용해야 합니다.
+  - 직접 테스트하는 코드를 추가하여, 수집할 정보가 모델이 알고있는지 테스트해주세요.
+---
+[35] markdown:
+### 미션 2 - 청킹 후, Vector DB에 임베딩 벡터값 저장하기
+- 교육생 여러분은 준비하신 Text파일을 청킹, 임베딩 하여 Vector DB에 저장해야합니다.
+
+---
+[36] markdown:
+### 미션3 - RAG 구현하기
+ - LangChain을 이용하여 RAG를 구현합니다.
+ - 이전에 수업했던 코드를 참고하여 완성합니다.
+---
+[37] markdown:
+### 미션 4 - Gradio UI와 연동하기
+- 이제 멋지게 화면을 구성할 차례입니다.
+- Web Application을 제작해주세요.
+- 이후에 Vibe 코딩으로 독창적이고 멋진 UI를 완성해주세요.
+---
+[38] markdown:
+### 미션 5 - Mattermost로 URL 제출하기
+- 멋지게 만든 URL을 각반의 MM에 올려주세요.
+- 구미 6반 소통채널에 업로드 해주세요.
+- 코드는 MM에 제출방법 참고하시면 되겠습니다.
+---
+[39] markdown:
+# 6. 끝으로
+- Gradio UI는 몇 초만에 GUI를 구성할 수 있는 패키지입니다.
+- 이번 수업으로 나만의 RAG 시스템을 만들어보고, Web App Demo까지 만들어 보았습니다.
+- 다음 수업에는 나만의 파인튜닝한 모델을 만들어보고, RAG와 비교를 해보는 시간을 갖겠습니다.
+
+### Easy 자료 (강사님 자료)
+- AI를 처음 공부하는 분들을 위해 만들어져있습니다.
+- 내용을 모두 이해해야합니다! **강사님의 도움을 적극적으로 받아주세요.**
+
+### 실습 / 과제 자료 (업스테이지 자료)
+- AI를 공부해본 경험자 위주로 만들어져있습니다.
+- 퍼즐조각을 모은다는 생각으로 공부해주세요!. **GPT의 도움을 적극적으로 받아주세요.**
+
+### 교수님 강의
+- 국내 최고의 AI 교수님들의 강의가 시작됩니다.
+- 최대한 내용을 이해해봅시다.
+---

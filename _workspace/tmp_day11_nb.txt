@@ -1,0 +1,543 @@
+[0] markdown:
+# 수업내용
+- 1. Multi-turn
+- 2. AI Agent 이해
+- 3. ReAct 구조 AI Agent 개발
+- 4. Agent를 활용한 Multi-turn, RAG 구현
+---
+[1] markdown:
+# 1. Langchain에서 Multi-turn 구현
+---
+[2] markdown:
+### Langchain 기본 코드
+---
+[3] markdown:
+- 먼저 지난번 수업을 복습해봅시다.
+- 먼저 Open_AI Key(Upstage Key)를 등록하고, 대화 코드를 테스트합니다.
+---
+[4] markdown:
+- 필요한 도구를 설치합니다.
+- OpenAI API Key를 환경변수로 등록합니다.
+
+
+---
+[5] code:
+!pip install --upgrade \
+  "langchain-core>=0.3.80,<0.4.0" \
+  "langchain==0.3.28" \
+  "langchain-community==0.3.28" \
+  "langchain-openai==0.3.7" \
+  "langchain-upstage==0.7.3" \
+  "langchain-text-splitters==0.3.11" \
+  "langchain-chroma==0.2.6" \
+  "chromadb==1.5.5" \
+  "transformers==4.46.0" \
+  "tokenizers==0.20.3" \
+  "huggingface-hub>=0.23.2,<1.0.0"
+---
+[6] code:
+# 로컬일 경우
+import os
+os.environ["OPENAI_API_KEY"] = "YOUR_UPSTAGE_API_KEY"
+---
+[7] markdown:
+- langchain 라이브러리가 0.3.28 버전인지 확인합니다.
+---
+[8] code:
+!pip show langchain
+---
+[9] code:
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# Component 준비 (Workflow의 각 구성요소)
+prompt = ChatPromptTemplate.from_template("넌 최고의 미식가야. 다음 질문에 대답해줘 <질문> : {question}")
+# 공식버전 1.0에서 init_chat_model로 함수명이 달라짐
+# model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model(
+    base_url="https://api.upstage.ai/v1", 
+    model_provider="openai", 
+    model="solar-pro3", 
+    ap
+---
+[10] markdown:
+### Multi-turn 이란?
+- 지금 만든 코드는, 입력한 명령에 대해 답변은 하지만, 이전 대화들을 기억하지 못하고 대답합니다.
+
+<br/>
+
+- 먼저 Single Turn / Multi Turn 대화가 무엇인지 보겠습니다.
+- 한 질문과 대답 하나로 끝나는 대화는... Single Turn" 이라고 합니다.
+  - 예시
+    - User : 나 우울해서..
+    - AI : 그렇구나.. 내가 너에게 힘이 되줄게 ㅜㅜ
+    - User : 빵샀어..
+    - AI : 와우!, 어떤빵을 샀어? 나도 빵 정말 좋아해
+  
+<br/>
+
+- Multi-turn 대화는 이전 대화의 맥락을 유지하면서, 대화가 Turn이 이어지는 것을 뜻합니다.
+  - 예시
+    - User : 나 우울해서..
+    - AI : 그렇구나.. 내가 너에게 힘이 되줄게 ㅜㅜ
+    - User : 빵샀어..
+    - AI : 그렇구나.. 빵 먹으면 감정이 조금 나아질꺼야.. 근데 어떤 빵샀어?
+
+---
+[11] markdown:
+### 멀티턴을 구현해봅시다.
+- LangChain에서 가이드해주는 방식이 아닌, 아주 간단한 방식을 알아봅시다.
+- 원리
+  - History 라는 List(배열)을 준비합니다.
+  - 전체 대화 내용을 모두 이 List에 저장합니다.
+  - **LLM에게 질문할 때 마다, 전체 대화 내용을 전달하면서 LLM에게 질문합니다.**
+---
+[12] code:
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# =============================================
+# 2개의 체인 구성
+# =============================================
+prompt = ChatPromptTemplate.from_template(
+    """
+    넌 최고의 미식가야
+    매우 사랑스럽고, 한 문장으로만 대답하지.
+
+    [지금까지의 대화] :
+    {history}
+
+    [질문] :
+    {input}
+    """
+)
+
+# model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_mo
+---
+[13] markdown:
+### 멀티턴 구현의 어려움
+- 위 코드는 어떤점이 문제일까요?
+- 대화가 길어질수록 성능이 안좋아집니다!
+  - LLM에게 모든 대화이력을 넘기는데, LLM이 점점 힘들어합니다.
+  - LLM이 대화 History가 너무 길어, 마지막 질문에 대답으로 엉뚱한 대답을 합니다.  
+  - **OpenAI API에 입력 토큰만큼 비용을 내야합니다. (헉!)**
+
+
+---
+[14] markdown:
+### LLM 대화 이력이 길어지는 문제 해결방법 - 내용 요약하기
+- History가 일정 길이가 넘어가면 이전 대화를 LLM에게 요약정리를 부탁합니다.
+- 요약정리된 내용을 포함하면, LLM에 넘겨야하는 History를 줄일 수 있습니다.
+- 이 기법으로 대화의 맥락을 유지할 수 있습니다. (일부 기억은 소실되는데, 이건 사람도 똑같습니다.)
+---
+[16] markdown:
+- 아래 코드는 요약 기능을 추가한 코드입니다.
+- 원리는 다음과 같습니다.
+  - 그 동안 대화 내용을 중 가장 마지막 대화 4 Turn을 요약하는 체인을 만들었습니다.
+  - 마지막 대화 4 Turn을 삭제하고, 요약을 대신 넣습니다.
+  - 대화가 8 Turn이 될때마다 위 작업을 수행합니다.
+---
+[17] code:
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# =============================================
+# 2개의 체인 구성
+# =============================================
+prompt = ChatPromptTemplate.from_template(
+    """
+    넌 최고의 미식가야
+    매우 사랑스럽고, 한 문장으로만 대답하지.
+
+    [지금까지의 대화] :
+    {history}
+
+    [질문] :
+    {input}
+    """
+)
+model = init_chat_model(base_url="https://api.upstage.ai/v1", model_p
+---
+[18] markdown:
+# 2. AI Agent 개발하기
+---
+[19] markdown:
+### AI Agent란?
+---
+[20] markdown:
+- AI Agent란, LLM이 스스로 필요한 함수(도구)를 호출해야겠다고 판단하여 호출하는 것을 뜻합니다.
+  - 예시
+    - LLM과 대화중에, LLM이 스스로 "사용자가 날씨가 궁금하구나?" 라고 판단이 되면 날씨 API를 호출합니다. (웹)
+    - LLM과 대화중에, 방에 불을 켜고 싶구나? 판단이 되면 방 불을 켜는 명령어를 날립니다. (임베디드)
+    - LLM과 대화중에, 전화를 걸고 싶구나? 판단이 되면 전화를 걸어줍니다. (모바일)
+
+---
+[21] markdown:
+### 간단한 AI Agent 개발해보기
+- LLM이 사용할 수 있는 함수(도구)를 만들어둡니다.
+- LLM이 사용자 질문에 따라 덧셈과 뺄셈 도구를 사용할 수있게 코딩해봅시다.
+---
+[23] markdown:
+- LLM이 ["add_sum", 3, 4] 형태의 포맷을 반환했을 경우, 실제 함수가 호출되도록 구현할 수 있습니다.
+  - 파이썬으로 이렇게 구현하면 됩니다.
+    - add_sum, add_minus 함수를 제작합니다.
+  - 아래와 같은 절차를 따릅니다.
+      1. LLM에게 질문을 줍니다.
+      2. LLM이 답변을 합니다. (함수호출이 필요하면 특정 포맷으로 반환하라고 합니다.)
+      3. LLM이 특정 포맷으로 답변했습니다.
+      4. 포맷 내용 분석 후, add_sum / add_minus 중 하나를 호출합니다.
+
+---
+[24] markdown:
+- 아래 코드는 특정 포맷으로 답변하고, 해당 함수를 호출하지 않습니다.
+  - 아래 코드를 먼저 이해하고, 함수를 실제로 호출하는 코드도 소개할 예정입니다.
+---
+[25] code:
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# Component 준비 (Workflow의 각 구성요소)
+prompt = ChatPromptTemplate.from_template("""
+    다음 질문에 답변만 해 줘.<질문> : {question}
+    만약 아래 도구를 사용하여 질문을 해결하는데 도움이 될 수 있다면,
+    해당되는 도구의 설명대로 답변해 주고, 도구가 답변에 도움이 되지 않는다면, 도구는 무시하시오.
+
+    [도구 1]
+    - 이름 : add_sum
+    - 설명 : 두 수의 합을 반환한다.
+    - 출력
+      - 만약 3, 4의 합이 필요한 경우라고 판단되면 다음 줄과 같이 단답형으로만 답변해.
+
+---
+[26] markdown:
+- 위 코드를 이해하셨다면, 이제 함수를 실제로 호출하는 코드를 넣어보겠습니다.
+---
+[27] code:
+import re
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain.tools import tool
+
+# Component 준비 (Workflow의 각 구성요소)
+prompt = ChatPromptTemplate.from_template("""
+    다음 질문에 답변만 해 줘.<질문> : {question}
+    만약 아래 도구를 사용하여 질문을 해결하는데 도움이 될 수 있다면,
+    해당되는 도구의 설명대로 답변해 주고, 도구가 답변에 도움이 되지 않는다면, 도구는 무시하시오.
+
+    [도구 1]
+    - 이름 : add_sum
+    - 설명 : 두 수의 합을 반환한다.
+    - 출력
+      - 만약 3
+---
+[28] markdown:
+- LLM이 직접 필요한 함수를 호출한 것과 동일한 효과입니다.
+  - 이것이 AI Agent입니다.
+    - AI가 호출할 수 있는 함수를 Tool 이라고 합니다.
+    - 목표를 이해하고, 할수 있는 행동 중 필요한 Tool을 선택하여 사용하는 것입니다
+    
+---
+[29] markdown:
+### Tool 사용 결과를 이해하는 AI Agent
+- 이번엔 LLM이 툴을 사용하는 것 뿐만 아니라, 그 결과를 이용하여 답변하도록 구현하겠습니다.
+  - 2개의 프롬프트가 필요합니다.
+    - 1) 툴을 사용해야하는지 판단하는 프롬프트
+    - 2) 툴 사용 결과를 포함하여, 다시 한번 제대로 질문하기
+---
+[31] code:
+import re
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# Component 준비 (도구 사용 전)
+prompt1 = ChatPromptTemplate.from_template("""
+    다음 질문에 도구가 필요한지 판단해줘 <질문> : {question}
+    만약 아래 도구를 사용하여 질문을 해결하는데 도움이 될 수 있다면, 해당되는 도구의 설명대로 답변해줘.
+    만약 도움이 되지 않는다면 "사용할 툴 없음" 이라고 답변해줘
+
+    [도구 1]
+    - 이름 : add_sum
+    - 설명 : 두 수의 합을 반환한다.
+    - 출력
+      - 만약 3, 4의 합이 필요한 경우라고 판단되면 답변 예시 : ["ad
+---
+[32] markdown:
+- 위 동작을 다음과 같이 표현할 수 있습니다.
+---
+[34] markdown:
+# 3. ReAct(Reasoning And Acting) 이해하기
+---
+[35] markdown:
+- Reasoning 이란?
+  - AI가 논리적인 사고를 하는 것을 Reasoning 이라고 합니다.
+  - 질문을 논리적으로 전개하여 생각하는 것입니다.
+  - 예시
+    - 질문 : 3만원씩 용돈받는 철수가, 4달치 모아서 10만원짜리 포켓몬 카드를 살수있을까?
+    - Reasoning 1 : 3만원씩 용돈을 4달치 모으면 곱셈을 하면되며, 총 12만원이다.
+    - Reasoning 2 : 12만원에서 10만원어치 구매하면, 2만원이 남고 살 수 있다.
+    - 대답 : 네, 포켓몬카드를 사고 2만원이 남습니다.
+
+<br/>
+
+- Acting은 AI가 Tool을 사용하는 것을 뜻합니다.
+
+<br/>
+
+- **ReAct는 AI Agent가 논리적인 생각과 행동을 반복하는 아래와 같은 구조를 뜻합니다.**
+  - 어려운 개념이아닙니다. Google에서 아래와 같은 구조에 이름을 붙인 것 뿐입니다.
+  - 반복적인 사고와 Tool의 실행으로 최종적인 답변을 얻어내고자 하는
+---
+[37] markdown:
+- 무한 루프가 돌 수도 있습니다!
+  - Observation 단계에서 최종 대답을 결정하지 않고, 계속 툴이 필요하다고 오작동 될수도 있습니다.
+  - 이 경우 최대 Cycle 수를 설정하거나, Tool을 한번씩만 수행하도록 제한을 걸 수 있습니다.
+---
+[38] markdown:
+- 직접 구현 하는건 많이 복잡합니다!
+  - 프롬프팅도 잘해야하고, LLM이 되게 자주 호출될꺼예요.
+  - 무한루프도 발생되지 않게해야하고, 디버깅도 오래걸릴꺼예요.
+  - **직접 구현 하는 방법은 생략하겠습니다!**
+---
+[39] markdown:
+# 4. LangChain 1 세대 수업 종료!(1.0버전 이전), 이제 2세대 LangChain 소개 시작!(1.0버전 부터)
+### 고생하셨습니다
+- 여기까지 하시느라 고생하셨습니다.
+  - 여기까지 전통적인 LangChain에 대해 알아봤습니다.
+- 래딧에 누군가가 이런말을 했는데요. 완전 동의합니다.
+  - 1 세대 AI App : AI Workflow 중심
+  - 2 세대 AI App : Agent 중심
+- 지금부터 Agent 중심으로 LangChain을 다루는 방법을 알아볼 것입니다.
+  - 먼저 ReAct를 LangChain에서 어떻게 구현하는지 보겠습니다.
+  - 이후 LangChain의 역사에 대해 알아보겠습니다.
+  
+- 아래 코드는 https://docs.langchain.com/oss/python/langchain/quickstart 코드를 참고하였습니다.
+---
+[40] code:
+# 랭체인 공식 버전으로 설치됩니다 (에러는 무시하셔도 됩니다.)
+!pip install --upgrade --force-reinstall \
+  "langchain-core==1.2.17" \
+  "langchain==1.2.12" \
+  "langgraph==1.1.2" \
+  "langchain-openai==1.1.0" \
+  "langchain-upstage==0.7.7" \
+  "langchain-text-splitters==1.1.1" \
+  "langchain-classic==1.0.2" \
+  "transformers==4.46.0" \
+  "tokenizers==0.20.3"
+---
+[41] code:
+from dataclasses import dataclass
+from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+
+# =====================================================
+# 시스템 프롬프트 (어떤 종류의 도구가 있음을 알리는건 LangChain의 권장사항 입니다.)
+# =====================================================
+SYSTEM_PROMPT = """너는 최고의 미식가야, 항상 간결하게 말하지
+사용자가 요청하면 필요한 도구를 정확히 한 번만 사용하고
+
+너에게는 세 개의 도구가 있어:
+
+1. add_sum(a, b)
+   - 두 수의 합을 구합니다.
+2. add_minus(a, b)
+   - 두 수의 차를 구합니다.
+3. a
+---
+[42] markdown:
+- 구현방법이 기존과 다르죠?
+  - 기존에는 chain = prompt | model | parser 형태로 workflow를 표현했었습니다.
+  - 위 코드에는 이런 workflow 형태 코드가 보이지 않습니다!
+  - 이러한 새로운 개발방법이 LangChain 공식 버전에 생겼습니다.
+
+<br/>
+
+- 한번 LangChain의 역사를 보면서, 이게 어찌된 일인지 살펴보겠습니다.
+---
+[43] markdown:
+# 5. LangChain 의 역사
+---
+[44] markdown:
+### LangChain의 출발점
+- LangChain은 통합된 AI App을 만들기 위해 시작되었습니다.
+  - AI 기능이 있는 App들은, 한 가지가 아닌 여러 AI Library들을 조합해서 AI App을 만들곤 합니다.
+    - 그런데 AI Library들 사용방법이 모두 다릅니다. ㅠㅠ 각각 공부해야합니다.
+    - 그리고 특정 AI Library 사용방법이 변경될 때 마다, 내 App도 유지보수 해줘야합니다.
+  - LangChain은 수 많은 AI Library을 똑같은 방법으로 사용할 수 있도록 합니다.
+    - AI Library들 각각 공부를 안해도 됩니다.
+    - AI Library들 사용방법이 똑같습니다.
+    - 손쉽게 여러 AI Library를 사용한 AI App을 만들 수 있습니다.    
+  - **LangChain으로 AI Workflow를 손쉽게 개발할 수 있었습니다.**
+---
+[45] markdown:
+### 25년 10월 전까지, LangChain vs LangGraph
+- 24년 1월에 LangGraph가 출시되었고, LangChain의 입지가 애매모호해졌습니다.
+  - LangChain
+    - **랭체인은 단순한 AI Workflow를 제작할 때 쓰라고 합니다.**
+      - 예시 : A -> B -> C -> D 와 같이 순서대로 동작되는 Workflow      
+    - 추가로 Tool 을 연동할 수 있습니다.
+  - LangGraph
+    - **더 복잡한 AI Workflow를 제작할 수 있습니다.**
+      - A -> B -> C -> 조건확인..Fail -> A -> B -> C -> 조건확인..Pass -> D -> E
+    - LangChain에서 만든 Component나 Chain을 사용할 수 있습니다.
+    - LangGraph를 AI Workflow 툴을 넘어 Workflow Orchestration(지휘자) 툴 이라고 소개합니다.
+---
+[46] markdown:
+### 25년 10월 이후, LangChain은 Workflow가 아닌 Agent를 만들기 위한 툴로 소개되기 시작합니다.
+- 25년 10월에 LangChain 공식버전 1.0이 출시되고 정의가 달라졌습니다.
+  - 1. LangChain은 Chain과 **Agentic App**을 쉽게 만드는 도구이다.
+  - 2. 복잡한 AI Workflow는 LangGraph로 만들어라
+  - 3. LangChain에서 만든 Component는 LangGraph에서 사용할 수 있다.
+- AI App들은 단순한 Workflow 보다는 ReAct 동작이 더 중요해졌기 때문입니다.
+  - 기존 Document는 chain = prompt | model | parser 와 같은 Workflow 중심으로 설명합니다.
+  - 신규 Document는 chain 설명이 제거되었고, Agent 코드를 더 우선적으로 설명합니다.
+    - Workflow는 LangGraph에서 구현하는 것을 강하게 권장합니다.
+---
+[48] markdown:
+# 6. LangChain의 장점과 단점, Q&A
+---
+[49] markdown:
+### LangChain의 장점
+---
+[50] markdown:
+- LLM 앱 개발에 필요한 많은 Component들이 모두 모여있습니다.
+- LLM API들을 동일한 방법으로 사용할 수 있습니다. (OpenAI, 클로드, Gemini 등)
+- 간단한 Workflow를 쉽게 구현할 수 있습니다.
+- RAG와 Tool을 쉽게 구현할 수 있습니다.
+- ReAct 구조의 AI Agent를 쉽게 구현할 수 있습니다.
+---
+[51] markdown:
+### LangChain의 단점
+---
+[52] markdown:
+- 버전마다 문법이 조금씩 다릅니다. 호환이 안되는 경우가 많습니다.
+  - 블로그 / 인터넷 / GPT 자료가 최신인지 아닌지 구분하기 어렵습니다.
+- LangChain 공식버전이 나오고 방향성이 달라졌습니다. (혼란~!)
+  - Chain 기반 Workflow 중심 ---> Agent 중심으로 변경
+  - Workflow는 LangGraph에서 다루는 것을 권장합니다.
+- 자체적으로 디버깅이 불편합니다. 구조가 복잡해서 Log 출력 디버깅 힘들어요.
+  - LangSmith를 사용해야합니다.
+- LangChain 문서에 LangGraph 내용이 섞여있습니다. ^^;;;
+  - LangChain과 LangGraph의 경계선이 모호합니다.
+  - 공식문서가 랭체인을 잘 설명해주지 못합니다.
+    - Agent만 크게 강조해서 설명합니다.
+    - Component 단위로 Chain을 구성하는 내용을 삭제하였습니다.
+- 성능 최적화 / 안정화가 덜 되었습니다.
+---
+[54] markdown:
+### Q&A
+- 지난 시간에 학습했던 Chain 방식은 더이상 안쓰이나요?
+  - 여전히 쓰입니다. **간단한 AI Workflow**를 만들 때 쓰입니다.
+  - 복잡한 AI Workflow는 랭그래프로 개발하는 것을 권장하고 있습니다.
+
+<br/>
+
+- 아예 랭체인 버리고, 랭그래프만 배우면 안되는 건가요?
+  - 랭그래프는, 랭체인의 확장팩으로 비유할 수 있습니다.
+    - 랭그래프를 배우기 전에, 랭체인을 알아야 이해하기 쉽습니다.
+    - 랭체인을 모르면, 랭그래프의 내부 동작을 이해하기 어렵습니다.
+
+<br/>
+
+- 랭체인은 그럼 앞으로 사라지나요?
+  - 아니요! 랭체인은 하나의 Component / Chain을 만들때 쓰입니다.
+    - 그리고 ReAct 구조의 간단한 Agentic App 만들때 쓰입니다.
+  - 랭그래프에서는 Component / Chain들을 연결하여 복잡한 Workflow를 만들 수 있습니다.
+  - 랭그래프를 Main Library로 사
+---
+[55] markdown:
+# 7. Agent를 활용한 Multi-turn 구현
+  - History를 기억하기 위한 InMemorySaver 라는 클래스가 제공됩니다.
+    - 랭그래프 Library를 가져다씁니다.
+---
+[56] code:
+from dataclasses import dataclass
+from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langgraph.checkpoint.memory import InMemorySaver   # 메모리 Saver 추가
+
+# =====================================================
+# 시스템 프롬프트
+# =====================================================
+SYSTEM_PROMPT = """너는 숫자 계산기야, 항상 간결하게 말하지
+사용자가 요청하면 필요한 도구를 정확히 한 번만 사용하고
+
+너에게는 세 개의 도구가 있어:
+
+1. add_sum(a, b)
+   - 두 수의 합을 구합니다.
+2. add_minus(a,
+---
+[57] markdown:
+# 8. Agent에 메세지 요약 기능 추가
+- 멀티턴에서 이전 대화가 너무 길어지면 LLM 성능이 안좋아집니다.
+- 따라서 오래된 대화 이력은 LLM을 통해 요약하여 History를 적게 관리하는 것이 좋습니다.
+- **SummarizationMiddleware 클래스**를 사용하면, 손쉽게 요약기능이 구현됩니다.
+- 아래 그림 출처 : https://docs.langchain.com/oss/python/langchain/short-term-memory#summarize-messages
+---
+[59] code:
+from dataclasses import dataclass
+from langchain.agents.middleware import SummarizationMiddleware    # 요약 기능추가
+from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langgraph.checkpoint.memory import InMemorySaver
+
+# =====================================================
+# 시스템 프롬프트
+# =====================================================
+SYSTEM_PROMPT = """너는 최고의 미식가야, 항상 간결하게 말하지
+사용자가 요청하면 필요한 도구를 정확히 한 번만 사용하고
+
+너에게는 세 개의
+---
+[60] markdown:
+# 9. Agent를 활용한 RAG 구현
+- LangChain 에서 RAG를 구현하는 두 가지 방법이 있습니다.
+  - 지난 시간에 배운 chain 을 이용한 방법입니다.
+  - 이번 시간에는 Agent를 이용하여 RAG를 구현합니다.
+---
+[61] markdown:
+### Library 설치
+---
+[62] markdown:
+- 실습에는 다음과 같은 모델과 DB를 사용합니다.
+  - 임베딩모델은 Upstage의 임베딩 모델을 사용합니다. (한국어에 특화되어 있기 때문에 사용)
+  - vector DB는 chromadb를 사용합니다.
+  - LLM모델은 Upstage의 solar-pro3 모델을 사용합니다.
+---
+[63] markdown:
+- 패키지들을 설치합니다.
+  - langchain-community
+    - 랭체인에서 자주사용되는 모듈들이 있습니다.
+    - Text 파일을 불러오는데 사용되는 Loader, Vector DB와 연동해주는 모듈 등이 있습니다.
+  - langchain-chroma
+    - 실습에 사용할 Vector DB 입니다.
+    - vector값들을 저장하고, vector값을 검색해주는 검색기를 제공합니다.
+---
+[64] code:
+# 실습에 필요한 라이브러리들을 설치합니다.
+!pip install --upgrade \
+  "langchain-community==0.4.1" \
+  "langchain-chroma==1.1.0" \
+  "chromadb==1.5.5"
+
+---
+[65] markdown:
+langchain 1.0 버전 이상인지 확인합니다.
+---
+[66] code:
+!pip show langchain
+---
+[67] markdown:
+### Text 준비하기
+---

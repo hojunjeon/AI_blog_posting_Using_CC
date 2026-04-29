@@ -1,0 +1,155 @@
+[0] markdown:
+# Langchain 을 이해해보자
+---
+[1] markdown:
+## Langchain
+
+- LLM 의 작업 흐름(파이프라인)을 연결해주는 프레임워크
+
+- 단순 LLM 호출이 아닌
+
+```
+입력 -> 프롬프트 가공 -> LLM 호출 -> 출력 가공 -> 다음 단계
+```
+
+이걸 코드로 쉽게 구현할 수 있도록 메서드들을 제공
+---
+[2] code:
+# API KEY 확인
+import os
+from dotenv import load_dotenv
+
+# 1. .env 파일 로드
+load_dotenv()
+
+API_KEY = os.getenv("UPSTAGE_API_KEY")
+print(f'API_KEY = {API_KEY}')
+---
+[3] code:
+# 1. OPENAI - LLM 모델 정의
+from langchain_openai import ChatOpenAI
+
+# Openai 모델을 Langchain으로 감싸주는 wrapper
+model = ChatOpenAI(
+    model="solar-pro",
+    base_url="https://api.upstage.ai/v1",
+    api_key=API_KEY
+)
+---
+[4] code:
+# 2. 사용자 프롬프트를 가공
+from langchain_core.prompts import ChatPromptTemplate
+
+# {question} 자리에 실제 사용자 입력값이 들어감
+prompt = ChatPromptTemplate.from_template(
+    "다음 질문에 답해줘: {question}"
+)
+---
+[5] code:
+# 3. 체인 구성
+# - 사용자 입력을 문자열로 변환
+# - model 이 LLM 을 호출
+# - parser : 결과를 문자열로 변환
+from langchain_core.output_parsers import StrOutputParser
+
+chain = prompt | model | StrOutputParser()
+---
+[6] code:
+# 4. 체인 호출
+query = "치킨은 왜 맛있어 ?"  # 사용자 질문
+
+result = chain.invoke({
+    "question": query
+})
+
+print(result)
+---
+[7] code:
+query = "김지윤은 누구야 ?"
+
+result = chain.invoke({
+    "question": query
+})
+
+print(result)
+---
+[8] markdown:
+---
+---
+[9] markdown:
+## Tool
+- LLM 이 호출할 수 있는 도구를 만들어 놓고
+- LLM 이 자체적으로 판단해서 필요할 때 호출하도록 구성
+---
+[10] code:
+from langchain_core.tools import tool
+
+# Tool 정의
+@tool
+def search_tool(query: str) -> str:
+    """내부 정보를 검색하는 도구"""
+    print(f'search_tool 호출!')
+
+    fake_db = {
+        "김지윤": "완전 공주고, 공부도 잘하고, 성격도 좋고, 멋진 사람이다. 대한민국을 흔들거다.",
+        "김장환": "완전 김치와와고, 미소가 아름답고, 숨어있는 걸 좋아한다. 대한민국을 훔칠거다.",
+        "달러환율": "1511원입니다"
+    }
+
+    # 사용자의 질문에 db의 key값이 있다면, value 를 return
+    for key in fake_db:
+        if key in query:
+            return fake_db[key]
+
+    return "검색 결과 없음"
+
+tools = [search_tool]  # t
+---
+[11] code:
+from langchain_core.prompts import ChatPromptTemplate
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", 
+     "너는 인물에 대한 정보나 최신 환율 정보가 필요하면 반드시 search_tool을 사용해야 한다."
+     "모르는 정보는 절대 추측하지 마라."
+    ),
+    ("human", "{question}")
+])
+
+# tool binding
+model_with_tools = model.bind_tools(tools)
+
+# 체인 구성
+chain = prompt | model_with_tools
+---
+[12] code:
+query = "김지윤이 누구야 ?"
+
+response = chain.invoke({
+    "question": query
+})
+
+print(f'response = {response}')
+---
+[13] code:
+query = "김장환이 누구야?"
+
+response = chain.invoke({
+    "question": query
+})
+
+print(f'response = {response}')
+
+if response.tool_calls:
+    for tool_call in response.tool_calls:
+        result = search_tool.invoke(tool_call["args"])
+
+        print(f"검색 결과 = {result}")
+
+        final_response = model.invoke([
+            ("system", "검색 결과를 기반으로 대답해"),
+            ("human", f"질문: {query} / 검색 결과: {result}")
+        ])
+
+        print(f"최종 응답 = {final_response}")
+---

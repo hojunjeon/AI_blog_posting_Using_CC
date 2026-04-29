@@ -1,0 +1,470 @@
+[0] markdown:
+# 수업 내용
+- 1. 효율적인 Fine-tuning (PEFT)의 원리 이해
+- 2. PEFT의 큰 두축 - LoRA와 QLoRA
+- 3. Unsloth Library 소개
+- 4. Unsloth Library를 사용한 추론
+- 5. Unsloth Library를 사용한 Fine-tuning (LoRA)
+
+---
+[1] markdown:
+# 1. 효율적인 Fine-tuning (PEFT) 이란?
+---
+[2] markdown:
+### Fine-tuning 개념 복습
+---
+[3] markdown:
+- Fine-tuning 이라는 개념을 학습했습니다!
+  - Foundation 모델에다가 추가 데이터를 넣어서 나만의 모델을 만드는 작업입니다!
+  - 모델을 내 필요에 맞게 추가 학습시키는 것이죠.
+---
+[4] markdown:
+- 잠깐 복습해볼까요?
+- Fine-tuning의 종류
+  - **Full Fine-tuning**
+    - 전체 Layer의 파라미터를 업데이트 해요. 많은 비용이 들어가요.
+    - 추가 학습이 잘 안되면, 모델 성능이 오히려 안좋아질수도 있습니다.
+  - **Partial Fine-tuning**
+    - 일부 Layer의 파라미터만 업데이트 해요.
+    - 저번 수업 Linear Probing을 했어요.
+      - 마지막 Layer만 파라미터 업데이트 했습니다.
+      - 사진이 Ronald 인지, 아닌지 분류하는 모델로 파인튜닝했던 수업 기억나죠?
+
+  - **효율적인 파인튜닝 (PEFT)** <--- **오늘 수업 내용**
+    - 기존 학습된 파라미터를 거의 건드리지 않아요.
+    - 기존 파라미터가 아닌, 새로운 파라미터를 추가하여 학습합니다.
+---
+[6] markdown:
+### PEFT! 효율적 파라미터 파인튜닝
+- 이제는 모델의 규모가 너무 커져서, Full Fine-tuning을 하기 어렵습니다.
+  - 그만한 데이터랑 GPU랑 시간이 없어요!
+- 추가 학습도 적은 비용으로 할수 있는 방법이 필요했습니다.
+- 아래와 같은 방법들이 생겼습니다.
+    - **LoRA** (오늘 수업할 내용)    
+    - Adapter-Tuning
+    - Prompt-Tuning
+    - 등등
+
+- 위 방법들을 PEFT(Parameter-Efficient Fine-Tuning)라고 합니다.
+  - 이름 그대로 **파인튜닝을 효율적으로 하자!** 라는 의미입니다
+<br/>
+
+---
+[7] markdown:
+### 학습 비용을 아끼는 또 하나의 방법 - 모델 크기를 줄이자!
+- 모델 자체를 작게 만들면, 학습 비용도 내려갈것이 틀림이 없습니다.
+  - **양자화** : 다 만들어진 모델을, 작게 축소하기 (오늘 수업할 내용)
+  - Pruning : 가지치기, 불필요했던 파리미터를 찾아 제거하기
+  - 등등
+
+<br/>
+
+- 대신 성능이 조금 낮아질 순 있겠죠.
+  - 성능이 아주 조금만 낮아지고, 모델 크기가 많이 줄어든다면 의미가 있습니다!
+---
+[8] markdown:
+# 2. PEFT의 큰 두축을 소개합니다. - LoRA와 QLoRA
+- 효율적으로~ 파인튜닝을 하기 위한 두 방법을 소개합니다.
+  - LoRA
+    - 적은 량의 추가 학습으로 Full Fine-tuning 과 같은 효과 내기!!
+    - 아이디어가 너무 좋아요!
+  - QLoRA
+    - 양자화를 해서 모델 자체를 작게만듭니다.
+    - 이후에 LoRA를 합니다.
+
+<br/>
+
+- 한번 LoRA와 QLoRA 원리를 쉽게 이해해보겠습니다.
+---
+[9] markdown:
+### LoRA 원리 이해하기 1단계 - Full Fine-tuning 생각해보기:
+---
+[10] markdown:
+- Full Fine-tuning을 생각해보겠습니다.
+  - 학습이 전 후 파라미터는 아래와 같이 될겁니다.
+  - 파라미터 행렬이 원래 엄청 거대한 크기인데, 설명 편의상 3x3으로 표현했어요.
+---
+[12] markdown:
+- 이걸 다음과 같이 표현할수도 있습니다.
+---
+[14] markdown:
+- 그럼 Full-Fine tuning은 결국 위에 빨간 사각형 영역의 delta W 값을 알아내는 작업입니다.
+---
+[15] markdown:
+### LoRA 원리 이해하기 2단계 - 선형대수학의 행렬곱
+---
+[16] markdown:
+- [3 x 1] 행렬과 [1 x 3] 행렬을 곱하면 [3 x 3] 행렬이 됩니다.
+---
+[18] markdown:
+- 정리하자면 다음과 같습니다.
+  - **[N x 1] 행렬과 [1 x N] 행렬의 곱으로 [N x N] 행렬을 만들 수 있다.**
+---
+[19] markdown:
+### LoRA 원리 이해하기 3단계 - 행렬들의 합
+
+
+---
+[20] markdown:
+- 한 행렬은 각각의 행렬들의 합으로 구성할 수 있습니다.
+---
+[22] markdown:
+### LoRA 원리 이해하기 4단계 - delta W 구하기
+---
+[23] markdown:
+- Full 파인튜닝할때 delta W를 구하는 것이죠?
+- delta W는 **더 적은수의 파라미터의 연산**으로 근사값을 구할 수 있습니다.
+  - 즉 delta W 의 모든 파라미터를 알아낼 필요가 없습니다.
+  - delta W를 만들 수 있는 더 적은수의 파라미터를 알아내면 됩니다!
+  - 이것이 LoRA의 원리입니다.
+---
+[25] markdown:
+- 위 그림을보시면 delta W 를 어떻게 만들어내는지 확인할 수 있습니다.
+  - [3 x 1] 행렬과 [1 x 3] 행렬의 곱을 합니다.
+  - 이렇게 만들어진 행렬을 합쳐서 실제 delta W를 근사합니다.
+---
+[26] markdown:
+
+
+- LoRA는 Full Fine-tuning 보다 알아내야할 (학습해야할) 파라미터 개수가 더 적습니다.
+  - 만약 delta W 행렬이 10,000 x 10,000 사이즈라고 할 경우를 생각해보세요.
+    - Full Fine tuning 에서 알아내야 할 파라미터 개수 = 1억개 입니다.
+    - LoRA 로 Full Fine tuning과 비슷한 효과를 낼수 있는 파라미터 개수 = 100만개로도 가능합니다.
+      - 더 많아질수록 delta W 랑 점점 더 근사한 값으로 됩니다.
+
+<br/>
+
+- LoRA를 쓰면, Full Fine-tuning의 delta W 값을 유사하게 만들 수 있습니다.
+
+<br/>
+
+- 아래 그림은 Full 파인튜닝과 LoRA와 원리를 하나의 그림으로 정리한 겁니다.
+  - 아래 그림에서 A, B는 설명에서 [3 x 1], [1 x 3] 행렬을 의미합니다.
+---
+[28] markdown:
+### QLoRA 이해하기 1 단계 - 양자화 이해하기
+- 5자리수의 곱을 계산하는 것 보다는.. 2자리 곱을 계산하는게 훨씬 빠를겁니다.
+  - 연산속도도 그렇고, 저장 공간도 그렇구요.
+- AI 연산들은 기본적으로 16 bit 로 소수점(실수)를 표현하고, 계산합니다.
+- 양자화란 16 bit보다 더 작은 bit를 사용해서 연산하고, 값을 저장하는 것을 뜻합니다.
+
+<br/>
+
+
+- 0.0 ~ 1.0 범위를 균등하게 나누어 표현하는 경우..<br/>
+bit 수에 따른 실수 표현 step은 다음과 같을 수 있습니다. <br/>
+(AI에서는 BF16, FP16이라는 다른 실수 표현 방법을 쓰긴 하지만, 표현 범위의 차이를 이해하기 위함입니다.)
+  
+  - 2 bit : 0.3333
+  - 3 bit : 0.1429
+  - 4 bit : 0.0667
+  - 5 bit : 0.03226
+  - 8 bit : 0.00392
+  - 16 bit : 0.00001526
+
+<br/>
+
+- 위
+---
+[29] markdown:
+### QLoRA 이해하기 2 단계 - QLoRA 란?
+---
+[30] markdown:
+- QLoRA의 개념은 간단합니다!
+  - Quantized Low-Rank Adaptation : 양자화된 모델에 LoRA 적용
+  - 16 bit로 된 모델을 4 bit로 양자화를 합니다.
+  - 이후에 LoRA를 하면 됩니다.
+
+<br/>
+
+- 우리 수업에서는 양자화 실습은 하지 않습니다!
+  - 허깅페이스에서 양자화가 이미 된 4bit 모델을 가져다 쓸겁니다.
+  - 바로 LoRA만 하면 됩니다.
+
+
+---
+[31] markdown:
+### [중요] LoRA, QLoRA 가 가진 의미
+- LoRA와 QLoRA는 대형 모델.. Foundation Model의 파인튜닝을 **대중화** 시켰습니다.
+- 집에서 사용하는 PC용 그래픽카드로도 Foundation Model 학습이 가능해졌습니다.
+---
+[32] markdown:
+# 3. Unsloth Library 소개
+---
+[33] markdown:
+- Unsloth Library는 저성능, 적은 개수의 GPU로 파인튜닝을 가능하도록 만든 Library 입니다.
+  - 허깅페이스 Transformer Library 처럼 추론도 가능합니다.
+  - 허깅페이스 Transformer Library 쓰는 것 보다 LoRA 학습 효율이 더 좋다고 합니다.
+    - (공식홈페이지 설명에 따르면)
+    - **2배 이상 학습속도가 빠름**
+    - **70% 이상 GPU 메모리 사용량이 줄어듬**
+  - 비교 대상은 허깅페이스의 Flash Attention 2 가속화 옵션 대비입니다.
+    - 그런데 구글 코랩의 T4 GPU에서는 Flash Attention 2 가속화 옵션도 못쓰거든요. (유로 GPU만 사용 가능)
+    - 그래서 코랩 사용자한테는 Unsloth의 의미가 더더욱 커요.
+
+<br/>
+
+- 앞으로 코랩에서 파인튜닝은 항상 LoRA를 하고, Unsloth Library로 합시다 ㅎㅎ
+---
+[34] markdown:
+# 4. Unsloth로 추론하기
+- Unsloth로 모델을 추론해보며, Unsloth Library에 친숙해집시다.
+---
+[35] markdown:
+### 추론에 사용할 모델 소개 : Gemma3n
+---
+[36] markdown:
+- 추론에 사용할 모델은 Google의 초 경량 멀티모달 모델인 Gemma3n (잼마3n) 입니다.
+  - 2025년 6월에 출시된 임베디드용 경량 모델입니다.
+    - 텍스트, 이미지, 오디오, 동영상 입력 됩니다.
+    - 참고 : https://developers.googleblog.com/ko/introducing-gemma-3n/
+
+  - 두 가지 모델을 제공합니다.
+    - E2B : 2B 수준으로 동작 가능한 모델입니다. **속도**를 중요시합니다.
+    - E4B : 4B 수준으로 동작 가능한 모델입니다. **성능**을 중요시합니다.
+
+  - 모델 시연 영상한번 보고 하시죠.
+    - 아래 유튜브 링크를 누르시면 2:10 초 부분인 시연 영상이 Play 됩니다.
+    - https://youtu.be/eJFJRyXEHZ0?t=128
+
+---
+[37] markdown:
+### 설치하기
+- 해당 내용은 Unsloth 공식 Document 내용을 참고하였습니다.
+  - Unsloth는 Document가 잘 되어있어요.
+  - Library 사용 가이드에 따라 실행해주세요~.
+  - https://github.com/unslothai/unsloth
+  - https://docs.unsloth.ai/models/gemma-3-how-to-run-and-fine-tune/gemma-3n-how-to-run-and-fine-tune
+---
+[38] markdown:
+### 모델 로딩 (다운로드)
+- FastModel 이라는 클래스를 사용합니다.
+- 모델 로딩, 추론, 파인튜닝을 할 때 사용합니다.
+
+<br/>
+
+- 원래 Gemma3N의 주소는 다음과 같습니다.
+  - https://huggingface.co/google/gemma-3n-E2B-it
+  - 허깅페이스 KEY 를 넣어야 사용가능합니다.
+- 그런데 unsloth이 직접 업로드한 모델은 허깅페이스 KEY 없어도 됩니다.
+- 양자화된 모델도 제공합니다.
+  - unsloth/gemma-3n-E4B-it : E4B는 T4 GPU로 안돌아가요.
+  - unsloth/gemma-3n-E2B-it : 옵션 세팅 잘하면 아슬아슬하게 돌아가요.
+  - **unsloth/gemma-3n-E2B-it-unsloth-bnb-4bit** : Unsloth에서 4비트 양자화한 모델 입니다.
+---
+[39] code:
+# 1. 기존 충돌 패키지 완전 삭제
+!pip uninstall torch torchvision torchaudio accelerate timm sentencepiece librosa datasets transformers trl peft sentence-transformers unsloth xformers unsloth-zoo -y
+
+# 2. Gemma 3N 모델을 위한 패키지들로 변경 후 커널 재시작
+!pip install --upgrade \
+  "torch==2.8.0+cu128" "torchvision" "torchaudio==2.8.0+cu128" \
+  --extra-index-url "https://download.pytorch.org/whl/cu128" \
+  "accelerate>=1.0.0" \
+  "timm==1.0.25" \
+  "sentencepiece>=0.2.0" \
+  "librosa==0.11.0" \
+  "datasets>=3.4.1" \
+  "tr
+---
+[40] code:
+import unsloth
+from unsloth import FastModel
+import torch
+
+# Kernel 재시작 후 설치한 transformers 패키지 버전 확인
+import transformers
+print(transformers.__version__)
+
+model, tokenizer = FastModel.from_pretrained(
+    model_name = "unsloth/gemma-3n-E2B-it-unsloth-bnb-4bit", # 허깅페이스 모델 이름
+    dtype = None, # None 을 하면 자동으로 데이터 타입을 인식합니다.
+    max_seq_length = 2048, # 모델이 한번에 인식할 수 있는 최대 토큰 길이
+    load_in_4bit = True,  # 4 bit 양자화 옵션 True (메모리 절약)
+    full_finetuning = False, # Full Finetuning 안함
+)
+---
+[41] markdown:
+### 추론 함수
+- do_gemma_3n_inference 함수를 하나 만듭니다.
+---
+[42] code:
+from transformers import TextStreamer
+# Helper function for inference
+def do_gemma_3n_inference(messages, max_new_tokens = 128):
+    _ = model.generate(
+        **tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt = True, # Must add for generation
+            tokenize = True,
+            return_dict = True,
+            return_tensors = "pt",
+        ).to("cuda"),
+        max_new_tokens = max_new_tokens,
+        temperature = 1.0, top_p = 0.95, top_k = 64,
+    
+---
+[43] markdown:
+### 이미지 추론하기
+---
+[44] markdown:
+- 아래 이미지와 함께 Text를 주고 추론을 시켜봅니다.
+  - 이 동물은 어떤 영화에 출현했니?
+---
+[46] code:
+sloth_link = "https://files.worldwildlife.org/wwfcmsprod/images/Sloth_Sitting_iStock_3_12_2014/story_full_width/8l7pbjmj29_iStock_000011145477Large_mini__1_.jpg"
+
+# messages의 형태는 Open AI에서 사용하는 messages 형태
+messages = [{
+    "role" : "user",
+    "content": [
+        { "type": "image", "image" : sloth_link },
+        { "type": "text",  "text" : "이 동물은 어떤 영화 나오니? 주토피아?" }
+    ]
+}]
+
+# 처음에는 3분 정도 소요됩니다.
+do_gemma_3n_inference(messages, max_new_tokens = 256)
+---
+[47] markdown:
+### 삼행시를 시켜봅니다.
+---
+[48] markdown:
+- 삼행시를 시켜봅시다.
+---
+[49] code:
+messages = [{
+    "role": "user",
+    "content": [{ "type" : "text",
+                  "text" : "3행시를 지어줘, 날 웃겨야해:\n\n김지윤" }]
+}]
+do_gemma_3n_inference(messages)
+---
+[50] markdown:
+### 소리도 들을 수 있습니다.
+- 아래는 음성파일입니다.
+  - 우리는 달에 가기로 했습니다. (by 미국 존 F. 케네디 대통령)
+---
+[51] code:
+from IPython.display import Audio, display
+Audio("https://www.nasa.gov/wp-content/uploads/2015/01/591240main_JFKmoonspeech.mp3")
+---
+[52] markdown:
+- 위 음성파일을 Model에게 주고, 물어봅시다.
+---
+[53] code:
+# 음성파일 다운로드
+# Colab, Docker에서 실행가능
+# Docker는 리눅스 OS 사용하므로 아래 명령어 그대로 사용가능
+!wget -q https://www.nasa.gov/wp-content/uploads/2015/01/591240main_JFKmoonspeech.mp3 -O audio.mp3
+---
+[54] code:
+audio_file = "audio.mp3"
+
+messages = [{
+    "role" : "user",
+    "content": [
+        { "type": "audio", "audio" : audio_file },
+        { "type": "text",  "text" : "어떤 오디오야?" }
+    ]
+}]
+do_gemma_3n_inference(messages, max_new_tokens = 256)
+---
+[55] markdown:
+# 5. Unsloth로 파인튜닝(PEFT) - 제주도 사투리 번역기 만들기
+
+이번 실습에서는 LLM이 **표준어를 제주도 사투리로 번역**하도록 학습시켜 보겠습니다.
+---
+[56] markdown:
+### 5-1. 파인튜닝에 사용할 모델 소개 : Qwen3
+---
+[57] markdown:
+- 모델마다 한국어 파인튜닝이 잘되는 모델이 있고, 아닌 모델이 있습니다.
+  - Gemma3n 실험결과, 권장 하이퍼파라미터로는 한글 파인튜닝이 잘 안되었습니다.
+  - 한국어를 위한 좋은 하이퍼파라미터가 있으면 잘 될수도 있겠죠?
+- 이번 시간에는 Qwen3을 이용하여 LoRA 파인튜닝을 해보겠습니다.
+  - 파인튜닝을 위해, 컴퓨터 재부팅 후 맑은 정신으로 진행해봅시다.
+  - Kernel을 재시작해주세요.
+---
+[58] markdown:
+### 5-2. Model 로드 / 추론해보기
+- Qwen3 모델을 허깅페이스에서 다운로드 및 로드합니다.
+- unsloth에서 4bit 양자화 한 모델을 사용합니다.
+---
+[59] code:
+from unsloth import FastLanguageModel
+import torch
+
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = "unsloth/Qwen3-4B-Instruct-2507",
+    max_seq_length = 2048, # Choose any for long context!
+    load_in_4bit = True,  # 4 bit quantization to reduce memory
+    load_in_8bit = False, # [NEW!] A bit more accurate, uses 2x memory
+    full_finetuning = False, # [NEW!] We have full finetuning now!
+)
+---
+[60] markdown:
+- 모델 추론을 담당하는 함수를 하나 만듭니다.
+---
+[61] code:
+from transformers import TextStreamer
+# Helper function for inference
+def do_qwen3_inference(messages, max_new_tokens = 128):
+    _ = model.generate(
+        **tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt = True, # Must add for generation
+            tokenize = True,
+            return_dict = True,
+            return_tensors = "pt",
+        ).to("cuda"),
+        max_new_tokens = max_new_tokens,
+        temperature = 1.2, top_p = 0.9, top_k = 50,
+        
+---
+[62] markdown:
+- 파인튜닝 하기 전, 제주도 사투리를 이해하는지 테스트해봅시다.
+  - 잘 모르는 것 같습니다.
+---
+[63] code:
+messages = [{
+    "role": "user",
+    "content": "다음 문장을 제주도 사투리로 번역해줘:\n\n귤 먹으면서 바다에서 놀면 좋아요!"
+}]
+
+do_qwen3_inference(messages)
+---
+[64] markdown:
+### 5-3. LoRA 어댑터 추가하기
+- LoRA 어댑터를 추가합니다.
+- 이 어댑터에 있는 소량의 파라미터만 학습할 예정입니다!
+- 이 어댑터의 Output 은 원래 가중치(W)에 더해질 가중치 값입니다. (delta W를 근사하는 A, B들)
+---
+[65] code:
+from unsloth import FastLanguageModel
+
+model = FastLanguageModel.get_peft_model(
+    model,
+    r = 32, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                      "gate_proj", "up_proj", "down_proj",],
+    lora_alpha = 32,
+    lora_dropout = 0, # Supports any, but = 0 is optimized
+    bias = "none",    # Supports any, but = "none" is optimized
+    # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
+    
+---
+[66] markdown:
+### 5-4. 모델의 입력 포맷 확인하기
+- 모델마다 사용하는 포맷이 있습니다.
+  - Qwen이 사전학습될때 사용했되었던... 모델 고유의 포맷입니다.
+  - 따라서 추가 학습할때도, 이 포맷에 맞추어 데이터를 넣어줘야합니다.
+
+- 이렇게 언어마다 사용하는 포맷을 "**chat template**" 이라고 합니다.
+---
+[68] markdown:
+### 5-5. Dataset 준비하기
+- 파인튜닝에 사용할 "제주도 사투리 번역" 데이터셋을 먼저 살펴보겠습니다
+  - https://huggingface.co/datasets/junyeong-nero/jeju-dialect-to-standard
+- Data Studio를 클릭하면, 데이터셋을 확인할 수 있습니다.
+---

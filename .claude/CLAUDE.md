@@ -52,16 +52,16 @@
 |-----|----------|------|--------|---------|
 | 1 | `day1_Python_for_AI` | Python 기초 + NumPy + Pandas | `0_1_AI를_위한_Python_(Easy).ipynb` | ✅ 완료 |
 | 2 | `day2_AI_Math` | 선형회귀 · 로지스틱회귀 (NumPy 구현) | `0_2_선형회귀와_로지스틱회귀_(Easy).ipynb` | ✅ 완료 |
-| 3 | `day3_AI_Data_EDA` | EDA + Scikit-learn 파이프라인 | `1_1_EDA와_Scikit_learn_(Easy).ipynb` | ⬜ 미작성 |
-| 4 | `day4_MLP` | 신경망 + MLP (PyTorch) | `1_2_신경망(Neural_Network)과_MLP_(Easy).ipynb` | ⬜ 미작성 |
-| 5 | `day5_CNN` | CNN + Fine-tuning | `3_1_CNN_모델과_Fine_tuning_(Easy).ipynb` | ⬜ 미작성 |
-| 6 | `day6_llm` | 파운데이션 모델 → 멀티모달 · 디퓨전 | `3_2_파운데이션에서_멀티모달까지,_LLM_모델의_진화(Easy).ipynb` | ⬜ 미작성 |
-| 7 | `day7_embeddings` | 토큰화 + 임베딩 + Transformer | `2_1_토큰화_임베딩_(Easy).ipynb` | ⬜ 미작성 |
-| 8 | `day8_data_synthetic` | LLM 데이터 생성 · 증강 | `2_2_AI를_이용한_데이터_생성법(Easy)_Solar.ipynb` | ⬜ 미작성 |
-| 10 | `day10_rag` | LangChain + RAG | `4-1_LangGraph와 RAG_r2.ipynb` 외 | ⬜ 미작성 |
-| 11 | `day11_agent` | Multi-turn + AI Agent + Gradio | `4-2(1)_LangGraph기본_r1.ipynb` 외 | ⬜ 미작성 |
-| 12 | `day12_PEFT` | PEFT · LoRA · QLoRA | `5_1_효율적인_Fine_tuning_PEFT(Easy).ipynb` | ⬜ 미작성 |
-| 14 | `day14_Quantization` | 모델 양자화 + llama.cpp | `5-2_양자화모델_성능측정_with_llama.cpp(Easy)_r7.ipynb` | ⬜ 미작성 |
+| 3 | `day3_AI_Data_EDA` | EDA + Scikit-learn 파이프라인 | `1_1_EDA와_Scikit_learn_(Easy).ipynb` | ✅ 완료 |
+| 4 | `day4_MLP` | 신경망 + MLP (PyTorch) | `1_2_신경망(Neural_Network)과_MLP_(Easy).ipynb` | ✅ 완료 |
+| 5 | `day5_CNN` | CNN + Fine-tuning | `3_1_CNN_모델과_Fine_tuning_(Easy).ipynb` | ✅ 완료 |
+| 6 | `day6_llm` | 파운데이션 모델 → 멀티모달 · 디퓨전 | `3_2_파운데이션에서_멀티모달까지,_LLM_모델의_진화(Easy).ipynb` | ✅ 완료 |
+| 7 | `day7_embeddings` | 토큰화 + 임베딩 + Transformer | `2_1_토큰화_임베딩_(Easy).ipynb` | ✅ 완료 |
+| 8 | `day8_data_synthetic` | LLM 데이터 생성 · 증강 | `2_2_AI를_이용한_데이터_생성법(Easy)_Solar.ipynb` | ✅ 완료 |
+| 10 | `day10_rag` | LangChain + RAG | `4-1_LangGraph와 RAG_r2.ipynb` 외 | ✅ 완료 |
+| 11 | `day11_agent` | Multi-turn + AI Agent + Gradio | `4-2(1)_LangGraph기본_r1.ipynb` 외 | ✅ 완료 |
+| 12 | `day12_PEFT` | PEFT · LoRA · QLoRA | `5_1_효율적인_Fine_tuning_PEFT(Easy).ipynb` | ✅ 완료 |
+| 14 | `day14_Quantization` | 모델 양자화 + llama.cpp | `5-2_양자화모델_성능측정_with_llama.cpp(Easy)_r7.ipynb` | ✅ 완료 |
 
 ## 글 작성 워크플로우
 
